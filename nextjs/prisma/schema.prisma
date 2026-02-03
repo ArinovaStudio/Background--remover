@@ -1,0 +1,110 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+model User {
+  id String @id @default(uuid())
+  email String @unique
+  name String?
+  password String
+  role Role @default(USER)
+  deviceHash String?
+  lastFreeUseAt DateTime?
+  createdAt DateTime @default(now())
+
+  subscription  Subscription?
+  usageLogs UsageLog[]
+  gallery ProcessedImage[]
+}
+
+model AnonymousUsage {
+  id String @id @default(uuid())
+  deviceHash String @unique
+  lastUsedAt DateTime @default(now())
+}
+
+model Plan {
+  id String @id @default(uuid())
+  name String 
+  price Float
+  creditsPerMonth Int
+  features String[]
+  
+  subscriptions Subscription[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  PAST_DUE
+}
+
+model Subscription {
+  id String @id @default(uuid())
+  userId String @unique
+  planId String
+  status SubscriptionStatus @default(ACTIVE)
+  creditsRemaining Int
+  startDate DateTime @default(now())
+  endDate DateTime
+
+  user User @relation(fields: [userId], references: [id])
+  plan Plan @relation(fields: [planId], references: [id])
+}
+
+enum AssetType {
+  MOCKUP
+  DEMO
+}
+
+model Asset {
+  id String @id @default(uuid())
+  url String
+  name String
+  type AssetType
+  category String?
+  isPremium Boolean @default(false)
+  createdAt DateTime @default(now())
+}
+
+model UsageLog {
+  id String @id @default(uuid())
+  userId String?
+  action String
+  success Boolean  @default(true)
+  createdAt DateTime @default(now())
+  
+  user User? @relation(fields: [userId], references: [id])
+}
+
+model ProcessedImage {
+  id String @id @default(uuid())
+  userId String?
+  url String
+  isSaved Boolean @default(false)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  
+  user User? @relation(fields: [userId], references: [id])
+}
+
+model Otp {
+  id String @id @default(uuid())
+  email String @unique
+  otp String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
