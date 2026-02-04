@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import { Plus, Layers, AlertCircle } from "lucide-react";
 import PlanModal from "@/components/admin/PlanModal";
-import PlanCard from "@/components/admin/PlanCard";
+import PlanCard from "@/components/admin/PlanCard"; 
+import ConfirmModal from "@/components/admin/ConfirmModal";
 
 interface Plan {
   id?: string;
@@ -18,8 +19,14 @@ export default function PlansPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   
+  // Create/Edit Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
+
+  // Delete Modal State
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [planToDelete, setPlanToDelete] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Fetch Plans
   const fetchPlans = async () => {
@@ -51,20 +58,31 @@ export default function PlansPage() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this plan? This cannot be undone.")) return;
+  const handleDeleteClick = (id: string) => {
+    setPlanToDelete(id);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!planToDelete) return;
+
+    setIsDeleting(true);
 
     try {
-      const res = await fetch(`/api/admin/plans/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/admin/plans/${planToDelete}`, { method: "DELETE" });
       const data = await res.json();
       
       if (data.success) {
-        fetchPlans();
+        await fetchPlans();
+        setIsDeleteModalOpen(false); 
+        setPlanToDelete(null);
       } else {
-        alert(data.message);
+        alert(data.message); 
       }
     } catch (err) {
       alert("Failed to delete plan");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -148,18 +166,31 @@ export default function PlansPage() {
               key={plan.id} 
               plan={plan} 
               onEdit={handleOpenEdit} 
-              onDelete={handleDelete} 
+              onDelete={() => plan.id && handleDeleteClick(plan.id)} 
             />
           ))}
         </div>
       )}
 
-      {/* Modal */}
+      {/* Create/Edit Modal */}
       <PlanModal 
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
         onSave={handleSave}
         initialData={editingPlan}
+      />
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={handleConfirmDelete}
+        title="Delete Plan"
+        description="Are you sure you want to delete this plan? This action cannot be undone and may affect users currently subscribed to this tier."
+        confirmText="Delete Plan"
+        cancelText="Cancel"
+        variant="danger"
+        loading={isDeleting}
       />
       
     </div>

@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { Plus, Search, Layers } from "lucide-react";
 import AssetModal from "@/components/admin/AssetModal";
 import AssetCard from "@/components/admin/AssetCard";
+import ConfirmModal from "@/components/admin/ConfirmModal";
+
 
 interface Asset {
   id: string;
@@ -21,8 +23,14 @@ export default function AssetsPage() {
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<"ALL" | "MOCKUP" | "DEMO">("ALL");
   
+  // Create/Edit Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
+
+  // Delete Modal State
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [assetToDelete, setAssetToDelete] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchAssets = async () => {
     setLoading(true);
@@ -73,13 +81,24 @@ export default function AssetsPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if(!confirm("Delete this asset?")) return;
+  const handleDeleteClick = (id: string) => {
+    setAssetToDelete(id);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if(!assetToDelete) return;
+    
+    setIsDeleting(true);
     try {
-        await fetch(`/api/admin/assets/${id}`, { method: "DELETE" });
-        fetchAssets();
+        await fetch(`/api/admin/assets/${assetToDelete}`, { method: "DELETE" });
+        await fetchAssets();
+        setIsDeleteModalOpen(false);
+        setAssetToDelete(null);
     } catch (err) {
         alert("Failed to delete");
+    } finally {
+        setIsDeleting(false);
     }
   };
 
@@ -165,18 +184,30 @@ export default function AssetsPage() {
                     key={asset.id} 
                     asset={asset} 
                     onEdit={handleOpenEdit} 
-                    onDelete={handleDelete} 
+                    onDelete={handleDeleteClick} 
                 />
             ))}
         </div>
       )}
 
-      {/* Modal */}
+      {/* Edit/Create Modal */}
       <AssetModal 
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
         onSave={handleSave} 
         initialData={editingAsset} 
+      />
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={handleConfirmDelete}
+        title="Delete Asset"
+        description="Are you sure you want to permanently delete this asset? This cannot be undone."
+        confirmText="Delete Asset"
+        variant="danger"
+        loading={isDeleting}
       />
 
     </div>
