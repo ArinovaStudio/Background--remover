@@ -121,8 +121,7 @@ export async function POST(req: NextRequest) {
         const assetBuffer = await fs.readFile(fullPath);
         const assetBlob = new Blob([assetBuffer]);
         pythonFormData.append("bg_file", assetBlob, "mockup.png");
-      } catch (err) {
-        console.error("Asset Load Error:", err);
+      } catch {
         return NextResponse.json({ success: false, message: "Failed to load selected mockup" }, { status: 500 });
       }
     }
