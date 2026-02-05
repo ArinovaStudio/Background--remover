@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, CreditCard, FileText, X, LogOut, Users, Activity } from 'lucide-react';
+import { Home, CreditCard, FileText, X, LogOut, Users, Activity, Image } from 'lucide-react';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -18,6 +18,7 @@ export default function AdminSidebar({ isOpen, onClose }: SidebarProps) {
     { name: "Plans", icon: CreditCard, href: "/admin/plans" },
     { name: "Users", icon: Users, href: "/admin/users" },
     { name: "Assets", icon: FileText, href: "/admin/assets" },
+    { name: "User Backgrounds", icon: Image, href: "/admin/backgrounds" },
     { name: "System", icon: Activity, href: "/admin/system" },
   ];
 

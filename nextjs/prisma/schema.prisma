@@ -25,6 +25,7 @@ model User {
   subscription  Subscription?
   usageLogs UsageLog[]
   gallery ProcessedImage[]
+  backgrounds UserBackground[]
 }
 
 model AnonymousUsage {
@@ -78,6 +79,20 @@ model Asset {
   category String?
   isPremium Boolean @default(false)
   createdAt DateTime @default(now())
+}
+
+model UserBackground {
+  id String @id @default(uuid())
+  userId String
+  url String
+  name String
+  category String?
+  isPublic Boolean @default(true)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model UsageLog {

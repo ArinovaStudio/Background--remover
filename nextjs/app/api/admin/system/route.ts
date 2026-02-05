@@ -21,7 +21,7 @@ async function getSystemStats() {
     const osMemFree = os.freemem();
     const osMemTotal = os.totalmem();
     const usedMemPercentage = ((osMemTotal - osMemFree) / osMemTotal) * 100;
-    const isHealthy = dbStatus === "healthy" && usedMemPercentage < 90;
+    const isHealthy = dbStatus === "healthy" && usedMemPercentage < 95;
 
     return {
         status: isHealthy ? "operational" : "degraded",
@@ -65,7 +65,7 @@ export async function GET(req: NextRequest) {
 
             await sendEvent();
 
-            const intervalId = setInterval(sendEvent, 2000); // every 2 second
+            const intervalId = setInterval(sendEvent, 2000); // 2 seconds
 
             // Cleanup when connection closes
             req.signal.addEventListener("abort", () => {
