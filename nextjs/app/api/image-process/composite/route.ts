@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
     // Backgrounds
     const bgColor = formData.get("color") as string;
     const bgImage = formData.get("bgImage") as File;
-    const bgId = formData.get("bgId") as string;
+    const bgId = formData.get("bgId") as string;  // asset or user background
     
     // optional config
     const width = formData.get("width") as string;

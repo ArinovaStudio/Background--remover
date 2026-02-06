@@ -6,19 +6,50 @@ import { deleteFile } from "@/lib/storage";
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const admin = await checkAuth();
-    if (!admin || admin.role !== "ADMIN") return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+    if (!admin || admin.role !== "ADMIN") return NextResponse.json({ success: false, message: "Forbidden" }, { status: 403 });
 
     const { id } = await params;
     const body = await req.json();
-    const { credits, removePlan } = body;
+    const { credits, removePlan, planId } = body;
 
+    // remove plan
     if (removePlan) {
       await prisma.subscription.deleteMany({
         where: { userId: id }
       });
-      return NextResponse.json({ success: true, message: "Plan removed" });
+      
+      return NextResponse.json({ success: true, message: "Plan removed" }, { status: 200 });
     }
 
+    // change plan
+    if (planId) {
+      const plan = await prisma.plan.findUnique({ where: { id: planId } });
+      if (!plan) return NextResponse.json({ success: false, message: "Plan not found" }, { status: 404 });
+
+      const existingSub = await prisma.subscription.findFirst({ where: { userId: id } });
+
+      if (existingSub) {
+        await prisma.subscription.update({
+          where: { id: existingSub.id },
+          data: { planId: planId }
+        });
+      }
+
+      else {
+        await prisma.subscription.create({
+          data: {
+            userId: id,
+            planId: planId,
+            creditsRemaining: plan.creditsPerMonth,
+            status: "ACTIVE",
+            startDate: new Date(),
+            endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+          }
+        });
+      }
+    }
+
+    // update credits
     if (typeof credits === 'number') {
       const sub = await prisma.subscription.findFirst({ where: { userId: id } });
       
@@ -30,11 +61,10 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         where: { id: sub.id },
         data: { creditsRemaining: credits }
       });
-      
-      return NextResponse.json({ success: true, message: "Credits updated" });
+    
     }
 
-    return NextResponse.json({ success: false, message: "No valid action provided" }, { status: 400 });
+    return NextResponse.json({ success: true, message: "User plan updated" }, { status: 200 });
 
   } catch {
     return NextResponse.json({ success: false, message: "Internal Server Error" }, { status: 500 });

@@ -1,16 +1,22 @@
 "use client";
 
-import { useState } from "react";
-import { X, Loader2, Ban } from "lucide-react";
+import { useState, useEffect } from "react";
+import { X, Loader2, Ban, Save, CreditCard } from "lucide-react";
 import ConfirmModal from "./ConfirmModal";
 
+interface Plan {
+  id: string;
+  name: string;
+  price: number;
+  creditsPerMonth: number;
+}
 
 interface User {
   id: string;
   name: string | null;
   email: string;
   subscription?: {
-    plan?: { name: string };
+    plan?: { id: string; name: string };
     creditsRemaining: number;
     status: string;
   } | null;
@@ -25,40 +31,75 @@ interface UserModalProps {
 
 export default function UserModal({ isOpen, onClose, user, onUpdate }: UserModalProps) {
   const [loading, setLoading] = useState(false);
+  const [loadingPlans, setLoadingPlans] = useState(false);
+  
+  // Form State
   const [credits, setCredits] = useState(user.subscription?.creditsRemaining || 0);
+  const [selectedPlanId, setSelectedPlanId] = useState<string>(user.subscription?.plan?.id || "");
+  const [plans, setPlans] = useState<Plan[]>([]);
   
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
+  // Fetch Plans on Open
+  useEffect(() => {
+    if (isOpen) {
+      setCredits(user.subscription?.creditsRemaining || 0);
+      setSelectedPlanId(user.subscription?.plan?.id || "");
+
+      const fetchPlans = async () => {
+        setLoadingPlans(true);
+        try {
+          const res = await fetch("/api/plans");
+          const data = await res.json();
+          if (data.success) setPlans(data.plans);
+        } catch (e) {
+          console.error("Failed to load plans", e);
+        } finally {
+          setLoadingPlans(false);
+        }
+      };
+      fetchPlans();
+    }
+  }, [isOpen, user]);
+
   if (!isOpen) return null;
 
-  const handleUpdateCredits = async () => {
+  const handleSave = async () => {
+    if (!selectedPlanId) {
+      alert("Please select a plan first.");
+      return;
+    }
+
     setLoading(true);
     try {
       await fetch(`/api/admin/users/${user.id}`, {
         method: "PUT",
-        body: JSON.stringify({ credits: Number(credits) }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          planId: selectedPlanId,
+          credits: Number(credits) 
+        }),
       });
+
       onUpdate();
       onClose();
-    } catch (err) {
-      alert("Failed to update credits");
+    } catch {
+      alert("Failed to update user.");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleRemoveClick = () => {
-    setIsConfirmOpen(true);
-  };
+  const handleRemoveClick = () => setIsConfirmOpen(true);
 
   const handleConfirmRemove = async () => {
     setLoading(true);
     try {
       await fetch(`/api/admin/users/${user.id}`, {
         method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ removePlan: true }),
       });
-      
       onUpdate();
       setIsConfirmOpen(false);
       onClose();
@@ -72,71 +113,112 @@ export default function UserModal({ isOpen, onClose, user, onUpdate }: UserModal
   return (
     <>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-        <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+        <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
           
-          <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-            <h3 className="font-bold text-gray-900">Manage User</h3>
-            <button onClick={onClose}><X className="w-5 h-5 text-gray-500" /></button>
+          {/* Header */}
+          <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
+            <h3 className="font-bold text-gray-900">Manage User Subscription</h3>
+            <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full transition-colors">
+              <X className="w-5 h-5 text-gray-500" />
+            </button>
           </div>
 
-          <div className="p-6 space-y-6">
-            {/* User Info */}
-            <div>
-              <p className="text-sm font-semibold text-gray-900">{user.name || "No Name"}</p>
-              <p className="text-sm text-gray-500">{user.email}</p>
+          <div className="p-6 space-y-6 overflow-y-auto">
+            {/* User Details */}
+            <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl border border-gray-100">
+              <div className="w-10 h-10 rounded-full bg-black text-white flex items-center justify-center font-bold text-lg">
+                {user.name?.[0]?.toUpperCase() || user.email[0].toUpperCase()}
+              </div>
+              <div>
+                <p className="font-bold text-gray-900">{user.name || "No Name"}</p>
+                <p className="text-sm text-gray-500">{user.email}</p>
+              </div>
             </div>
 
-            {/* Credits Management */}
-            {user.subscription ? (
-              <div className="space-y-3">
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Update Credits</label>
-                <div className="flex gap-2">
-                  <input 
-                    type="number" 
-                    value={credits}
-                    onChange={(e) => setCredits(Number(e.target.value))}
-                    className="text-black flex-1 px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:border-black"
-                  />
-                  <button 
-                    onClick={handleUpdateCredits}
-                    disabled={loading}
-                    className="px-4 py-2 bg-black text-white rounded-xl text-sm font-semibold hover:bg-gray-800 disabled:opacity-50"
+            <div className="space-y-4">
+              {/* Plan Selector */}
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+                  Selected Plan
+                </label>
+                <div className="relative">
+                  <select
+                    value={selectedPlanId}
+                    onChange={(e) => setSelectedPlanId(e.target.value)}
+                    disabled={loadingPlans}
+                    className="w-full appearance-none bg-white border border-gray-300 text-gray-900 text-sm rounded-xl focus:ring-black focus:border-black block w-full p-3 pr-10 disabled:bg-gray-100 disabled:text-gray-400"
                   >
-                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save"}
-                  </button>
+                    <option value="" disabled>Select a plan...</option>
+                    {plans.map((plan) => (
+                      <option key={plan.id} value={plan.id}>
+                        {plan.name} — ₹{plan.price}/mo ({plan.creditsPerMonth} credits)
+                      </option>
+                    ))}
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                     <CreditCard className="w-4 h-4" />
+                  </div>
                 </div>
               </div>
-            ) : (
-              <div className="p-4 bg-gray-50 rounded-xl border border-dashed border-gray-200 text-center text-sm text-gray-500">
-                User doesn&apos;t have a plan. No credits to manage.
-              </div>
-            )}
 
-            {/* Danger Zone */}
-            {user.subscription && (
-              <div className="pt-6 border-t border-gray-100">
-                 <button 
-                   onClick={handleRemoveClick}
-                   disabled={loading}
-                   className="w-full py-3 rounded-xl border border-red-100 text-red-600 bg-red-50 text-sm font-semibold hover:bg-red-100 flex items-center justify-center gap-2"
-                 >
-                   <Ban className="w-4 h-4" /> Remove Plan
-                 </button>
+              {/* Credits Input */}
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+                  Credits Balance
+                </label>
+                <div className="relative">
+                   <input
+                    type="number"
+                    min="0"
+                    value={credits}
+                    onChange={(e) => setCredits(Number(e.target.value))}
+                    className="bg-white border border-gray-300 text-gray-900 text-sm rounded-xl focus:ring-black focus:border-black block w-full p-3"
+                    placeholder="0"
+                  />
+                </div>
+                <p className="mt-1.5 text-[11px] text-gray-400">
+                   *Modifying the plan will not automatically reset these credits. Adjust manually if needed.
+                </p>
               </div>
-            )}
+            </div>
           </div>
+
+          {/* Footer Actions */}
+          <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex gap-3">
+             {/* Remove Plan Button (Only if user has a plan) */}
+             {user.subscription && (
+                <button
+                  onClick={handleRemoveClick}
+                  disabled={loading}
+                  className="flex-1 py-2.5 rounded-xl border border-red-200 bg-red-50 text-red-600 font-semibold text-sm hover:bg-red-100 transition-colors flex items-center justify-center gap-2"
+                >
+                  <Ban className="w-4 h-4" /> Remove Plan
+                </button>
+             )}
+
+             {/* Save Button */}
+             <button
+                onClick={handleSave}
+                disabled={loading || !selectedPlanId}
+                className="flex-[2] py-2.5 rounded-xl bg-black text-white font-semibold text-sm hover:bg-gray-800 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+             >
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                Save Changes
+             </button>
+          </div>
+
         </div>
       </div>
 
-      {/* Confirmation Modal */}
+      {/* Confirmation Modal for Removal */}
       <ConfirmModal
         isOpen={isConfirmOpen}
         onClose={() => setIsConfirmOpen(false)}
         onConfirm={handleConfirmRemove}
-        title="Remove User Subscription"
-        description="Are you sure you want to cancel this user's subscription immediately? They will lose access to premium features and remaining credits."
+        title="Remove Subscription?"
+        description="This will immediately cancel the user's plan. They will lose access to premium features."
         confirmText="Remove Plan"
-        cancelText="Keep Plan"
+        cancelText="Cancel"
         variant="danger"
         loading={loading}
       />
